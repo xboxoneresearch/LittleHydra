@@ -1,0 +1,28 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <UsingTask
+      TaskName="DotnetMsbuildTask"
+      TaskFactory="RoslynCodeTaskFactory"
+      AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll" >
+		<Task>
+			<Using Namespace="System" />
+			<Using Namespace="System.IO" />
+			<Code Type="Fragment" Language="cs">
+<![CDATA[
+        try
+        {
+            File.WriteAllText(@"D:\\msbuild_works.txt", "It works");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.LogErrorFromException(ex);
+            return false;
+        }
+  ]]>
+			</Code>
+		</Task>
+  </UsingTask>
+  <Target Name="RunDotnetMsbuildTask">
+    <DotnetMsbuildTask/>
+  </Target>
+</Project> 

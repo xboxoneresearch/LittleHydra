@@ -1,0 +1,1 @@
+echo yes > D:\ps1_works.txt

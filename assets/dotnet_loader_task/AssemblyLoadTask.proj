@@ -1,0 +1,59 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<PropertyGroup>
+		<!-- The assemblypath-->
+		<AssemblyPath></AssemblyPath>
+		<!-- Arguments -->
+		<Arguments></Arguments>
+		<!-- The absolute path to the working directory to use for the injected exe -->
+		<WorkingDirectory>D:\</WorkingDirectory>
+	</PropertyGroup>
+  <UsingTask
+      TaskName="AssemblyLoadTask"
+      TaskFactory="RoslynCodeTaskFactory"
+      AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll" >
+		<ParameterGroup>
+			<WorkingDirectory ParameterType="System.String" Required="false" />
+			<AssemblyPath ParameterType="System.String" Required="true" />
+			<Arguments ParameterType="System.String" Required="false" />
+    </ParameterGroup>
+		<Task>
+			<Using Namespace="System" />
+			<Using Namespace="System.IO" />
+			<Using Namespace="System.Reflection"/>
+			<Code Type="Fragment" Language="cs">
+<![CDATA[
+        try
+        {
+            byte[] assemblyBytes = File.ReadAllBytes(AssemblyPath);
+            var assembly = Assembly.Load(assemblyBytes);
+            var entry = assembly.EntryPoint;
+            if (entry == null)
+            {
+                Log.LogError($"No entry point found in {AssemblyPath}");
+                return false;
+            }
+            object[] args = null;
+            if (!string.IsNullOrEmpty(Arguments))
+            {
+                args = new object[] { Arguments.Split(' ') };
+            }
+            else
+            {
+                args = new object[] { new string[0] };
+            }
+            entry.Invoke(null, args);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.LogErrorFromException(ex);
+            return false;
+        }
+  ]]>
+			</Code>
+		</Task>
+  </UsingTask>
+  <Target Name="RunAssemblyLoadTask">
+    <AssemblyLoadTask AssemblyPath="$(AssemblyPath)" Arguments="$(Arguments)" />
+  </Target>
+</Project> 

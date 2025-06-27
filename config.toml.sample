@@ -1,0 +1,49 @@
+[general]
+dotnet_path = "D:\\dotnet"
+pwsh_path = "D:\\pwsh"
+rpc_port = 9000
+
+[[service]]
+name = "example_cmd"
+exec_type = "cmd"
+path = "D:\\examples\\example.bat"
+args = []
+working_dir = "D:\\"
+start_priority = 1
+restart_on_error = false
+
+[[service]]
+name = "example_ps1"
+exec_type = "ps1"
+path = "D:\\examples\\example.ps1"
+args = []
+working_dir = "D:\\"
+start_priority = 2
+restart_on_error = false
+
+[[service]]
+name = "example_dotnet"
+exec_type = "dotnet"
+path = "D:\\examples\\example.dll"
+args = []
+working_dir = "D:\\"
+start_priority = 3
+restart_on_error = false
+
+[[service]]
+name = "example_msbuild"
+exec_type = "msbuild"
+path = "D:\\examples\\dotnet_loader_task.xml"
+args = []
+working_dir = "D:\\"
+start_priority = 4
+restart_on_error = false
+
+[[service]]
+name = "example_native"
+exec_type = "native"
+path = "D:\\examples\\example.exe"
+args = []
+working_dir = "D:\\"
+start_priority = 5
+restart_on_error = false

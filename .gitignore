@@ -1,0 +1,5 @@
+target/
+examples_srcs/dotnet_program/obj
+examples_srcs/dotnet_program/bin
+
+config.toml
