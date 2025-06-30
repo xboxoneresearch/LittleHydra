@@ -46,4 +46,5 @@ path = "D:\\examples\\example.exe"
 args = []
 working_dir = "D:\\"
 start_priority = 5
+ports = [8080]
 restart_on_error = false

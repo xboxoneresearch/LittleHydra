@@ -22,7 +22,7 @@ use tokio::signal;
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::Error;
-use crate::firewall::{allow_port_through_firewall, disable_firewalls};
+use crate::firewall::{allow_ports_through_firewall, disable_firewalls};
 use crate::process_manager::ProcessManager;
 use crate::rpc::named_pipe_ipc_server;
 use crate::tcp_log_writer::TcpLogWriter;
@@ -79,7 +79,7 @@ async fn main() -> Result<(), Error> {
         let pm_clone = pm.clone();
         let rpc_port = config.general.rpc_port;
         disable_firewalls()?;
-        allow_port_through_firewall("LittleHydra", rpc_port)?;
+        allow_ports_through_firewall("LittleHydra", &[rpc_port])?;
         std::thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             rt.block_on(crate::rpc::tcp_rpc_server(rpc_port, pm_clone));

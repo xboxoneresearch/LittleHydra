@@ -25,6 +25,8 @@ pub struct ServiceConfig {
     pub working_dir: String,
     pub start_priority: u32,
     pub restart_on_error: bool,
+    #[serde(default)]
+    pub ports: Vec<u16>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

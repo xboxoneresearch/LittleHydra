@@ -36,9 +36,9 @@ pub enum RpcRequest {
         name: String,
     },
     SaveConfig,
-    OpenFirewallPort {
+    OpenFirewallPorts {
         name: String,
-        port: u16,
+        ports: Vec<u16>,
     },
     DeleteFirewallRule {
         name: String,
@@ -103,12 +103,12 @@ where
                         },
                         Err(e) => RpcResponse::Error { message: e },
                     },
-                    Ok(RpcRequest::OpenFirewallPort { name, port }) => {
-                        match crate::firewall::allow_port_through_firewall(&name, port) {
+                    Ok(RpcRequest::OpenFirewallPorts { name, ports }) => {
+                        match crate::firewall::allow_ports_through_firewall(&name, &ports) {
                             Ok(()) => RpcResponse::Success {
-                                data: serde_json::json!({"name": name, "port": port, "status": "PortOpened"}),
+                                data: serde_json::json!({"name": name, "ports": ports, "status": "PortsOpened"}),
                             },
-                            Err(e) => RpcResponse::Error { message: format!("Failed to open firewall port: {e}") },
+                            Err(e) => RpcResponse::Error { message: format!("Failed to open firewall ports: {e}") },
                         }
                     }
                     Ok(RpcRequest::DeleteFirewallRule { name }) => {

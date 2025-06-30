@@ -208,7 +208,7 @@ fn open_fwp_session() -> HANDLE {
     handle
 }
 
-fn build_and_add_fwp_port_filter(name: &str, port: u16, layer: GUID, engine: HANDLE) {
+fn build_and_add_fwp_port_filter(name: &str, ports: &[u16], layer: GUID, engine: HANDLE) {
     let mut provider_key = provider_guid();
 
     let mut filter: FWPM_FILTER0 = unsafe { core::mem::zeroed() };
@@ -219,14 +219,18 @@ fn build_and_add_fwp_port_filter(name: &str, port: u16, layer: GUID, engine: HAN
     filter.providerKey = &mut provider_key as *mut _;
     filter.layerKey = layer;
 
-    let mut conditions: [FWPM_FILTER_CONDITION0; 1] = [FWPM_FILTER_CONDITION0 {
-        fieldKey: FWPM_CONDITION_IP_LOCAL_PORT,
-        matchType: FWP_MATCH_EQUAL,
-        conditionValue: FWP_CONDITION_VALUE0 {
-            r#type: FWP_UINT16,
-            Anonymous: FWP_CONDITION_VALUE0_0 { uint16: port },
-        },
-    }];
+    // Create a Vec of FWPM_FILTER_CONDITION0, one for each port
+    let mut conditions: Vec<FWPM_FILTER_CONDITION0> = ports
+        .iter()
+        .map(|&port| FWPM_FILTER_CONDITION0 {
+            fieldKey: FWPM_CONDITION_IP_LOCAL_PORT,
+            matchType: FWP_MATCH_EQUAL,
+            conditionValue: FWP_CONDITION_VALUE0 {
+                r#type: FWP_UINT16,
+                Anonymous: FWP_CONDITION_VALUE0_0 { uint16: port },
+            },
+        })
+        .collect();
 
     filter.numFilterConditions = conditions.len() as u32;
     filter.filterCondition = conditions.as_mut_ptr();
@@ -276,12 +280,12 @@ fn install_fwpm_provider(engine: HANDLE) {
     }
 }
 
-pub(crate) fn allow_port_through_firewall(name: &str, port: u16) -> Result<(), Error> {
+pub(crate) fn allow_ports_through_firewall(name: &str, ports: &[u16]) -> Result<(), Error> {
     let engine = open_fwp_session();
     debug!("Engine HANDLE: {engine:#X?}");
     install_fwpm_provider(engine);
 
-    build_and_add_fwp_port_filter(name, port, FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4, engine);
+    build_and_add_fwp_port_filter(name, ports, FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4, engine);
 
     unsafe {
         FwpmEngineClose0(engine);

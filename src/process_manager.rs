@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use crate::config::{Config, ExecType};
 use crate::dotnet::load_dotnet_assembly_with_config;
 use crate::process_log_writer::spawn_output_logger;
+use crate::firewall::allow_ports_through_firewall;
 use crate::rpc::{ServiceState, ServiceStatusState};
 
 pub struct ProcessManager {
@@ -50,6 +51,13 @@ impl ProcessManager {
         if handles.contains_key(name) {
             return Err(format!("Service '{name}' is already running"));
         }
+
+        if !svc.ports.is_empty() {
+            if let Err(err) = allow_ports_through_firewall(&svc.name, &svc.ports) {
+                return Err(format!("Failed allowing {:?} in firewall, err: {err}", svc.ports));
+            }
+        }
+
         let mut child = match svc.exec_type {
             ExecType::Ps1 => {
                 let mut cmd = Command::new(format!("{}/pwsh.exe", self.config.general.pwsh_path));
