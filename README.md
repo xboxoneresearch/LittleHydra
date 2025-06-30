@@ -45,6 +45,30 @@ Check out `config.toml` file in the project root.
    ```
 3. **Configure your services in `config.toml`.**
 
+## Command-Line Arguments
+
+When running `little-hydra`, you can use the following command-line arguments:
+
+- `-v`, `--verbose` (repeatable): Increase log verbosity. Each additional `-v` increases the log level:
+  - No flag: Warnings only
+  - `-v`: Info
+  - `-vv`: Debug
+  - `-vvv` or more: Trace
+- `--log-host <host:port>`: Send logs to a remote TCP log host (e.g., `127.0.0.1:9000`).
+
+### Example Usage
+
+```sh
+# Run with default (warnings only)
+little-hydra.exe
+
+# Run with info logging
+little-hydra.exe -v
+
+# Run with debug logging and remote log host
+little-hydra.exe -vv --log-host 192.168.1.100:9000
+```
+
 ## RPC API
 
 Little Hydra exposes a named pipe at `\\.\pipe\little_hydra_rpc` for runtime control. Send JSON requests (one per line):
