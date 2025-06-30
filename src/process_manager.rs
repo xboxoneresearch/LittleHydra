@@ -200,4 +200,53 @@ impl ProcessManager {
             .map_err(|e| format!("Failed to write config.toml: {e}"))?;
         Ok(())
     }
+
+    /// Starts a background thread that monitors all running services and updates their state if they exit.
+    pub fn start_monitoring(&self) {
+        let handles = Arc::clone(&self.handles);
+        let states = Arc::clone(&self.states);
+        std::thread::spawn(move || {
+            loop {
+                // Sleep for a short interval between checks
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                let mut to_remove = Vec::new();
+                {
+                    let mut handles_guard = handles.lock().unwrap();
+                    for (name, child) in handles_guard.iter_mut() {
+                        match child.try_wait() {
+                            Ok(Some(status)) => {
+                                // Process has exited
+                                let exit_code = status.code();
+                                // Update state
+                                let mut states_guard = states.lock().unwrap();
+                                if let Some(state) = states_guard.get_mut(name) {
+                                    state.state = ServiceStatusState::Stopped;
+                                    state.exit_code = exit_code;
+                                    state.stop_time = Some(Utc::now());
+                                }
+                                to_remove.push(name.clone());
+                            }
+                            Ok(None) => {
+                                // Still running, do nothing
+                            }
+                            Err(_e) => {
+                                // Error checking process, treat as stopped
+                                let mut states_guard = states.lock().unwrap();
+                                if let Some(state) = states_guard.get_mut(name) {
+                                    state.state = ServiceStatusState::Stopped;
+                                    state.exit_code = None;
+                                    state.stop_time = Some(Utc::now());
+                                }
+                                to_remove.push(name.clone());
+                            }
+                        }
+                    }
+                    // Remove exited processes from handles
+                    for name in to_remove {
+                        handles_guard.remove(&name);
+                    }
+                }
+            }
+        });
+    }
 }

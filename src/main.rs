@@ -38,6 +38,7 @@ async fn main() -> Result<(), Error> {
 
     let config = Arc::new(config);
     let pm = Arc::new(ProcessManager::new(config.clone()));
+    pm.start_monitoring();
 
     // Set up flexi_logger with file and stdout initially
     let log_level = cli.get_log_level();
