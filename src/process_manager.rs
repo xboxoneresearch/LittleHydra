@@ -213,32 +213,35 @@ impl ProcessManager {
     pub fn start_monitoring(&self) {
         let handles = Arc::clone(&self.handles);
         let states = Arc::clone(&self.states);
+        let config = Arc::clone(&self.config);
+        let pm_self = self.clone_for_monitoring();
         std::thread::spawn(move || {
             loop {
-                // Sleep for a short interval between checks
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 let mut to_remove = Vec::new();
+                let mut to_restart = Vec::new();
                 {
                     let mut handles_guard = handles.lock().unwrap();
                     for (name, child) in handles_guard.iter_mut() {
                         match child.try_wait() {
                             Ok(Some(status)) => {
-                                // Process has exited
                                 let exit_code = status.code();
-                                // Update state
                                 let mut states_guard = states.lock().unwrap();
                                 if let Some(state) = states_guard.get_mut(name) {
                                     state.state = ServiceStatusState::Stopped;
                                     state.exit_code = exit_code;
                                     state.stop_time = Some(Utc::now());
                                 }
+                                // Find service in ServiceConfig by name and check restart_on_error
+                                if let Some(svc) = config.service.iter().find(|s| s.name == *name) {
+                                    if svc.restart_on_error && exit_code.unwrap_or(0) != 0 {
+                                        to_restart.push(name.clone());
+                                    }
+                                }
                                 to_remove.push(name.clone());
                             }
-                            Ok(None) => {
-                                // Still running, do nothing
-                            }
+                            Ok(None) => {}
                             Err(_e) => {
-                                // Error checking process, treat as stopped
                                 let mut states_guard = states.lock().unwrap();
                                 if let Some(state) = states_guard.get_mut(name) {
                                     state.state = ServiceStatusState::Stopped;
@@ -249,12 +252,24 @@ impl ProcessManager {
                             }
                         }
                     }
-                    // Remove exited processes from handles
                     for name in to_remove {
                         handles_guard.remove(&name);
                     }
                 }
+                // Restart services outside the lock
+                for name in to_restart {
+                    let _ = pm_self.start_service(&name);
+                }
             }
         });
+    }
+
+    // Helper to allow calling start_service from monitoring thread
+    fn clone_for_monitoring(&self) -> Arc<ProcessManager> {
+        Arc::new(ProcessManager {
+            handles: Arc::clone(&self.handles),
+            states: Arc::clone(&self.states),
+            config: Arc::clone(&self.config),
+        })
     }
 }
