@@ -4,15 +4,12 @@
 		<AssemblyPath></AssemblyPath>
 		<!-- Arguments -->
 		<Arguments></Arguments>
-		<!-- The absolute path to the working directory to use for the injected exe -->
-		<WorkingDirectory>D:\</WorkingDirectory>
 	</PropertyGroup>
   <UsingTask
       TaskName="AssemblyLoadTask"
       TaskFactory="RoslynCodeTaskFactory"
       AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll" >
 		<ParameterGroup>
-			<WorkingDirectory ParameterType="System.String" Required="false" />
 			<AssemblyPath ParameterType="System.String" Required="true" />
 			<Arguments ParameterType="System.String" Required="false" />
     </ParameterGroup>

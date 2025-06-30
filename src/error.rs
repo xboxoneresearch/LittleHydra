@@ -17,8 +17,6 @@ pub enum Error {
     ProcessMemoryWrite(String),
     #[error("Thread creation failed: {0}")]
     ThreadCreation(String),
-    #[error("Environment variable expansion failed: {0}")]
-    EnvironmentExpansion(String),
     #[error("Firewall operation failed: {0}")]
     Firewall(String),
     #[error("COM initialization failed: {0}")]

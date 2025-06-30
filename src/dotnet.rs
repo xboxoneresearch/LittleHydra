@@ -39,11 +39,11 @@ pub fn load_dotnet_assembly(
         .arg("msbuild")
         .arg(&project_path)
         .arg(format!("/p:AssemblyPath={assembly_path}"))
+        .current_dir(working_dir)
         .env("DOTNET_CLI_TELEMETRY_OPTOUT", "1")
         .env("DOTNET_EnableWriteXorExecute", "0")
         .env("DOTNET_NOLOGO", "1")
         .env("DOTNET_ROLL_FORWARD", "LatestMajor")
-        .current_dir(&temp_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
