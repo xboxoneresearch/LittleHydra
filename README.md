@@ -24,26 +24,32 @@ It implements ideas / mechanisms from the following projects:
 - ✅ Config loading / saving
 - ✅ CMD / bat execution
 - ❌ Powershell scripts - Needs implementation of SharpShell / Silverton Assemby.Load() mechanism
-- ✅ .NET assemblies - Pass
-- ✅ MSBuild tasks - Pass
-- ✅ Native PE executable injection - Pass
+- ✅ .NET assemblies
+- ✅ MSBuild tasks
+- ✅ Native PE executable injection
 - ❌ Argument passing in general - Not tested fully
+- ❌ Making use of "working_directory" parameter
 
 ## Configuration
 
 Check out `config.toml` file in the project root.
 
-## Usage
+## Building
 
-1. **Build the project:**
-   ```sh
-   cargo build --release --target 
-   ```
-2. **Run the manager:**
-   ```sh
-   target\release\little_hydra.exe
-   ```
-3. **Configure your services in `config.toml`.**
+- Requires Rust (latest stable).
+
+### Windows
+
+```
+cargo build --release --target x86_64-pc-windows-msvc
+```
+
+### Linux
+
+```
+cargo install xwin
+cargo xwin build --release --target x86_64-pc-windows-msvc
+```
 
 ## Command-Line Arguments
 
@@ -75,7 +81,11 @@ little-hydra.exe --config D:\config.toml
 
 ## RPC API
 
-Little Hydra exposes a named pipe at `\\.\pipe\little_hydra_rpc` for runtime control. Send JSON requests (one per line):
+Little Hydra exposes a named pipe at `\\.\pipe\little_hydra_rpc` for runtime control.
+
+Additionally, a TCP server is started on `rpc_port` (see `config.toml`).
+
+Send JSON requests (one per line):
 
 ### Commands
 - `listServices`: Get all configured services and their states.
@@ -201,23 +211,6 @@ Little Hydra exposes a named pipe at `\\.\pipe\little_hydra_rpc` for runtime con
 **Response:**
 ```json
 {"status": "Error", "message": "Service 'foo' not found"}
-```
-
-## Building and Extending
-
-- Requires Rust (latest stable).
-
-## Windows
-
-```
-cargo build --release
-```
-
-## Linux
-
-```
-cargo install xwin
-cargo xwin build --release --target x86_64-pc-windows-msvc
 ```
 
 ## License
