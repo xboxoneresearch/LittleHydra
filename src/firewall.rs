@@ -1,5 +1,4 @@
-use crate::error::Error;
-use log::debug;
+use log::{debug, error};
 use windows::Win32::Foundation::FWP_E_ALREADY_EXISTS;
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::Foundation::INVALID_HANDLE_VALUE;
@@ -15,9 +14,13 @@ use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FWPM_FILTER0;
 use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4;
 use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FWPM_PROVIDER_FLAG_PERSISTENT;
 use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FWPM_PROVIDER0;
+use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FWPM_FILTER_ENUM_TEMPLATE0;
 use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FwpmEngineClose0;
 use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FwpmEngineOpen0;
 use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FwpmFilterAdd0;
+use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FwpmFilterEnum0;
+use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FwpmFilterDeleteById0;
+use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FwpmFilterCreateEnumHandle0;
 use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FwpmProviderAdd0;
 use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FwpmProviderGetByKey0;
 use windows::Win32::NetworkManagement::WindowsFilteringPlatform::FwpmTransactionBegin0;
@@ -37,6 +40,7 @@ use windows::Win32::System::Rpc::RPC_C_AUTHN_DEFAULT;
 use windows::core::BSTR;
 use windows::core::GUID;
 use windows::core::PWSTR;
+use crate::error::Error;
 
 /// Disables the Windows firewall by using the NetFwPolicy2 COM interface.
 /// TODO: figure out if this even does anything meaningful.
@@ -278,6 +282,88 @@ pub(crate) fn allow_port_through_firewall(name: &str, port: u16) -> Result<(), E
     install_fwpm_provider(engine);
 
     build_and_add_fwp_port_filter(name, port, FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4, engine);
+
+    unsafe {
+        FwpmEngineClose0(engine);
+    }
+
+    Ok(())
+}
+
+/// Removes a port filter from the firewall by its display name.
+pub(crate) fn delete_rule_from_firewall(name: &str, engine: HANDLE) -> Result<(), Error> {
+    unsafe {
+        let mut enum_template: FWPM_FILTER_ENUM_TEMPLATE0 = core::mem::zeroed();
+        enum_template.layerKey = FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4;
+        let mut enum_handle = HANDLE::default();
+        let res = FwpmFilterCreateEnumHandle0(
+            engine,
+            Some(&enum_template),
+            &mut enum_handle,
+        );
+        if res != 0 {
+            return Err(Error::Firewall(format!("FwpmFilterCreateEnumHandle0 failed: 0x{res:08X}")));
+        }
+
+        let mut filters_ptr: *mut *mut FWPM_FILTER0 = std::ptr::null_mut();
+        let mut num_filters: u32 = 0;
+        let num_entries_requested = 256;
+        let res = FwpmFilterEnum0(
+            engine,
+            enum_handle,
+            num_entries_requested,
+            &mut filters_ptr,
+            &mut num_filters,
+        );
+        if res != 0 {
+            return Err(Error::Firewall(format!("FwpmFilterEnum0 (fetch) failed: 0x{res:08X}")));
+        }
+
+        let filters = std::slice::from_raw_parts(filters_ptr, num_filters as usize);
+        let mut found = false;
+        for &filter_ptr in filters {
+            if filter_ptr.is_null() {
+                continue;
+            }
+            let filter = &*filter_ptr;
+            if !filter.displayData.name.is_null() {
+                let filter_name = {
+                    let mut len = 0;
+                    let mut ptr = filter.displayData.name.0;
+                    while !ptr.is_null() && *ptr != 0 {
+                        len += 1;
+                        ptr = ptr.add(1);
+                    }
+                    let slice = std::slice::from_raw_parts(filter.displayData.name.0, len);
+                    String::from_utf16_lossy(slice)
+                };
+                if filter_name == name {
+                    let res = FwpmFilterDeleteById0(engine, filter.filterId);
+                    if res != 0 {
+                        debug!("FwpmFilterDeleteById0 failed: 0x{res:08X}");
+                        return Err(Error::Firewall(format!("FwpmFilterDeleteById0 failed: 0x{res:08X}")));
+                    }
+                    found = true;
+                    debug!("Deleted filter with name: {name}");
+                    break;
+                }
+            }
+        }
+        if !found {
+            return Err(Error::Firewall(format!("No filter found with name: {name}")));
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn remove_port_from_firewall_by_name(name: &str) -> Result<(), Error> {
+    let engine = open_fwp_session();
+    debug!("Engine HANDLE: {engine:#X?}");
+    install_fwpm_provider(engine);
+
+    if let Err(err) = delete_rule_from_firewall(name, engine) {
+        error!("Failed to delete filter by name '{name}', err: {err:?}");
+    }
 
     unsafe {
         FwpmEngineClose0(engine);

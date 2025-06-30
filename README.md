@@ -80,6 +80,8 @@ Little Hydra exposes a named pipe at `\\.\pipe\little_hydra_rpc` for runtime con
 - `addService { name, config }`: Add a new service with the given config (as JSON).
 - `deleteService { name }`: Remove a service by name.
 - `saveConfig`: Save the current configuration to `config.toml`.
+- `openFirewallPort { name, port }`: Open a firewall port with a given rule name and port number.
+- `deleteFirewallRule { name }`: Delete a firewall rule by its name.
 
 ### Example Requests & Responses
 
@@ -168,6 +170,26 @@ Little Hydra exposes a named pipe at `\\.\pipe\little_hydra_rpc` for runtime con
 **Response:**
 ```json
 {"status": "Success", "data": {"status": "ConfigSaved"}}
+```
+
+#### Open Firewall Port
+**Request:**
+```json
+{"cmd": "openFirewallPort", "name": "MyAppRule", "port": 8080}
+```
+**Response:**
+```json
+{"status": "Success", "data": {"name": "MyAppRule", "port": 8080, "status": "PortOpened"}}
+```
+
+#### Delete Firewall Rule
+**Request:**
+```json
+{"cmd": "deleteFirewallRule", "name": "MyAppRule"}
+```
+**Response:**
+```json
+{"status": "Success", "data": {"name": "MyAppRule", "status": "FirewallRuleDeleted"}}
 ```
 
 #### Error Example

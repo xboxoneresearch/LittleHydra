@@ -36,6 +36,13 @@ pub enum RpcRequest {
         name: String,
     },
     SaveConfig,
+    OpenFirewallPort {
+        name: String,
+        port: u16,
+    },
+    DeleteFirewallRule {
+        name: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -96,6 +103,22 @@ where
                         },
                         Err(e) => RpcResponse::Error { message: e },
                     },
+                    Ok(RpcRequest::OpenFirewallPort { name, port }) => {
+                        match crate::firewall::allow_port_through_firewall(&name, port) {
+                            Ok(()) => RpcResponse::Success {
+                                data: serde_json::json!({"name": name, "port": port, "status": "PortOpened"}),
+                            },
+                            Err(e) => RpcResponse::Error { message: format!("Failed to open firewall port: {e}") },
+                        }
+                    }
+                    Ok(RpcRequest::DeleteFirewallRule { name }) => {
+                        match crate::firewall::remove_port_from_firewall_by_name(&name) {
+                            Ok(()) => RpcResponse::Success {
+                                data: serde_json::json!({"name": name, "status": "FirewallRuleDeleted"}),
+                            },
+                            Err(e) => RpcResponse::Error { message: format!("Failed to delete firewall rule: {e}") },
+                        }
+                    }
                     Err(e) => RpcResponse::Error {
                         message: format!("Invalid request: {e}"),
                     },
