@@ -13,6 +13,10 @@ pub struct Cli {
     /// TCP log host (format: host:port)
     #[arg(long)]
     pub log_host: Option<String>,
+
+    /// Path to config file (default: config.toml)
+    #[arg(short = 'c', long = "config", default_value = "config.toml")]
+    pub config: String,
 }
 
 impl Cli {

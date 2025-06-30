@@ -31,7 +31,7 @@ use crate::tcp_log_writer::TcpLogWriter;
 async fn main() -> Result<(), Error> {
     let cli = Cli::parse();
 
-    let config_str = fs::read_to_string("config.toml")?;
+    let config_str = fs::read_to_string(&cli.config)?;
     let config: Config = toml::from_str(&config_str)?;
     println!("General config: {:#?}", config.general);
     println!("Loaded services: {:#?}", config.service);
