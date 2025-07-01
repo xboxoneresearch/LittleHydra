@@ -42,22 +42,21 @@ async fn main() -> Result<(), Error> {
 
     // Set up flexi_logger with file and stdout initially
     let log_level = cli.get_log_level();
-    let mut logger = Logger::try_with_str(log_level.to_string())?
-        .log_to_file(FileSpec::default())
-        .duplicate_to_stderr(flexi_logger::Duplicate::All)
-        .write_mode(WriteMode::BufferAndFlush);
+    let log_filespec = FileSpec::default().directory("D:\\lh_logs");
+    let mut logger = Logger::try_with_str(log_level.to_string())?;
 
-    // Connect to log_host if provided via command line
-    let tcp_writer = tcp_log_writer::init_tcp_writer(cli.log_host.as_ref());
-    // Add tcp logger
-    if let Some(ref tcp_stream) = tcp_writer {
-        let tcp_writer = TcpLogWriter {
-            stream: tcp_stream.clone(),
-        };
-        logger = logger.add_writer("tcp", Box::new(tcp_writer));
+    // Add the file- and optionally, if connection to log-host succeeds, the tcp-logger
+    if cli.log_host.is_some() && let Some(tcp_stream) = tcp_log_writer::init_tcp_writer(&cli.log_host.unwrap()) {
+        logger = logger.log_to_file_and_writer(log_filespec, Box::new(TcpLogWriter { stream: tcp_stream }));
+    } else {
+        logger = logger.log_to_file(log_filespec);
     }
 
-    logger.start()?;
+    logger
+        .duplicate_to_stderr(flexi_logger::Duplicate::All)
+        .write_mode(WriteMode::BufferAndFlush)
+        .start()?;
+
     info!("LittleHydra starting up...");
 
     // Print current working directory

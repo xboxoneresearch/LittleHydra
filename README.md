@@ -60,7 +60,7 @@ When running `little-hydra`, you can use the following command-line arguments:
   - `-v`: Info
   - `-vv`: Debug
   - `-vvv` or more: Trace
-- `--log-host <host:port>`: Send logs to a remote TCP log host (e.g., `127.0.0.1:9000`).
+- `--log-host <host:port>`: Send logs to a remote TCP log host (e.g., `192.168.1.100:9123`).
 - `-c`, `--config <FILE>`: Path to the config file to load (default: `config.toml`).
 
 ### Example Usage
@@ -73,7 +73,7 @@ little-hydra.exe
 little-hydra.exe -v
 
 # Run with debug logging and remote log host
-little-hydra.exe -vv --log-host 192.168.1.100:9000
+little-hydra.exe -vv --log-host 192.168.1.100:9123
 
 # Run with a custom config file
 little-hydra.exe --config D:\config.toml

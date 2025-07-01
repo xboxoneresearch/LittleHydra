@@ -24,33 +24,29 @@ impl LogWriter for TcpLogWriter {
     }
 }
 
-pub fn init_tcp_writer(log_host: Option<&String>) -> Option<Arc<Mutex<TcpStream>>> {
-    if let Some(log_host) = log_host {
-        match log_host.split_once(":") {
-            Some((host, port_str)) => match port_str.parse::<u16>() {
-                Ok(port) => match TcpStream::connect((host, port)) {
-                    Ok(stream) => {
-                        println!("Connected to log host at {host}:{port}");
-                        Some(Arc::new(Mutex::new(stream)))
-                    }
-                    Err(e) => {
-                        println!("Failed to connect to log host {host}:{port}: {e}");
-                        None
-                    }
-                },
+pub fn init_tcp_writer(log_host: &str) -> Option<Arc<Mutex<TcpStream>>> {
+    match log_host.split_once(":") {
+        Some((host, port_str)) => match port_str.parse::<u16>() {
+            Ok(port) => match TcpStream::connect((host, port)) {
+                Ok(stream) => {
+                    println!("Connected to log host at {host}:{port}");
+                    Some(Arc::new(Mutex::new(stream)))
+                }
                 Err(e) => {
-                    println!("Invalid port in log_host '{port_str}': {e}");
+                    println!("Failed to connect to log host {host}:{port}: {e}");
                     None
                 }
             },
-            None => {
-                println!(
-                    "Invalid log_host format: '{log_host}'. Expected <host>:<port>"
-                );
+            Err(e) => {
+                println!("Invalid port in log_host '{port_str}': {e}");
                 None
             }
+        },
+        None => {
+            println!(
+                "Invalid log_host format: '{log_host}'. Expected <host>:<port>"
+            );
+            None
         }
-    } else {
-        None
     }
 }
