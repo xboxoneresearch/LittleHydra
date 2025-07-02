@@ -73,7 +73,7 @@ impl ProcessManager {
             ExecType::Dotnet => load_dotnet_assembly_with_config(
                 &self.config,
                 &svc.path,
-                Some(&svc.args.join("")),
+                Some(&svc.args.join(" ")),
                 &svc.working_dir,
             )
             .map_err(|e| format!("Failed to start dotnet: {e}"))?,
