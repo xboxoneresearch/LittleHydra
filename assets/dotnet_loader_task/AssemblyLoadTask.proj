@@ -4,6 +4,8 @@
 		<AssemblyPath></AssemblyPath>
 		<!-- Arguments -->
 		<Arguments></Arguments>
+        <!-- Working directory -->
+        <WorkingDirectory></WorkingDirectory>
 	</PropertyGroup>
   <UsingTask
       TaskName="AssemblyLoadTask"
@@ -12,6 +14,7 @@
 		<ParameterGroup>
 			<AssemblyPath ParameterType="System.String" Required="true" />
 			<Arguments ParameterType="System.String" Required="false" />
+            <WorkingDirectory ParameterType="System.String" Required="false"/>
     </ParameterGroup>
 		<Task>
 			<Using Namespace="System" />
@@ -38,6 +41,11 @@
             {
                 args = new object[] { new string[0] };
             }
+
+            if (!string.IsNullOrEmpty(WorkingDirectory)) {
+                Directory.SetCurrentDirectory(WorkingDirectory);
+            }
+
             entry.Invoke(null, args);
             return true;
         }
@@ -51,6 +59,6 @@
 		</Task>
   </UsingTask>
   <Target Name="RunAssemblyLoadTask">
-    <AssemblyLoadTask AssemblyPath="$(AssemblyPath)" Arguments="$(Arguments)" />
+    <AssemblyLoadTask AssemblyPath="$(AssemblyPath)" Arguments="$(Arguments)" WorkingDirectory="$(WorkingDirectory)" />
   </Target>
 </Project> 

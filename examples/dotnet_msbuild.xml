@@ -10,7 +10,8 @@
 <![CDATA[
         try
         {
-            File.WriteAllText(@"D:\\msbuild_works.txt", "It works");
+            var currentDir = Directory.GetCurrentDirectory();
+            File.WriteAllText(@"D:\msbuild_works.txt", $"It works\nCurrent dir: {currentDir}");
             return true;
         }
         catch (Exception ex)
