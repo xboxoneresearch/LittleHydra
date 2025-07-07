@@ -14,7 +14,7 @@ use clap::Parser;
 use flexi_logger::FileSpec;
 use flexi_logger::{Logger, WriteMode};
 use log::*;
-use std::fs;
+use std::{env, fs};
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tokio::signal;
@@ -31,8 +31,11 @@ use crate::tcp_log_writer::TcpLogWriter;
 async fn main() -> Result<(), Error> {
     let cli = Cli::parse();
 
-    let config_str = fs::read_to_string(&cli.config)?;
-    let config: Config = toml::from_str(&config_str)?;
+    let config_str = fs::read_to_string(&cli.config)
+        .expect(&format!("Failed reading config from '{}'", &cli.config));
+    let config: Config = toml::from_str(&config_str)
+        .expect(&format!("Failed deserializing config from '{}'", &cli.config));
+
     println!("General config: {:#?}", config.general);
     println!("Loaded services: {:#?}", config.service);
 
@@ -42,7 +45,7 @@ async fn main() -> Result<(), Error> {
 
     // Set up flexi_logger with file and stdout initially
     let log_level = cli.get_log_level();
-    let log_filespec = FileSpec::default().directory("D:\\lh_logs");
+    let log_filespec = FileSpec::default().directory(env::temp_dir());
     let mut logger = Logger::try_with_str(log_level.to_string())?;
 
     // Add the file- and optionally, if connection to log-host succeeds, the tcp-logger
