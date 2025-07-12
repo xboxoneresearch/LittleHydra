@@ -12,6 +12,8 @@ pub enum ExecType {
     // Executes a dotnet msbuild task via `dotnet msbuild`
     Msbuild,
     // Starts a new suspended Win32 process and injects PE loader shellcode into it
+    PELoad,
+    // Starts a (signed) process natively, via CreateProcess
     Native,
 }
 
