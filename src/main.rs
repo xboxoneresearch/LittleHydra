@@ -80,8 +80,11 @@ async fn main() -> Result<(), Error> {
     {
         let pm_clone = pm.clone();
         let rpc_port = config.general.rpc_port;
-        disable_firewalls()?;
-        allow_ports_through_firewall("LittleHydra", &[rpc_port])?;
+        #[cfg(feature = "firewall")]
+        {
+            disable_firewalls()?;
+            allow_ports_through_firewall("LittleHydra", &[rpc_port])?;
+        }
         std::thread::spawn(move || {
             let rt = Runtime::new().unwrap();
             rt.block_on(crate::rpc::tcp_rpc_server(rpc_port, pm_clone));
