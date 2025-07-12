@@ -41,10 +41,20 @@ restart_on_error = false
 
 [[service]]
 name = "example_native"
-exec_type = "native"
+exec_type = "peload"
 path = "D:\\examples\\example.exe"
 args = ["some","native","args"]
 working_dir = "D:\\"
 start_priority = 5
 ports = [8080]
+restart_on_error = false
+
+[[service]]
+name = "example_native"
+exec_type = "native"
+path = "C:\\Windows\\System32\\tlist.exe"
+args = ["-v"]
+working_dir = "C:\\Windows\\System32"
+start_priority = 6
+ports = []
 restart_on_error = false

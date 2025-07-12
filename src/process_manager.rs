@@ -59,6 +59,16 @@ impl ProcessManager {
         }
 
         let mut child = match svc.exec_type {
+            ExecType::Native => {
+                Command::new(&svc.path)
+                    .args(&svc.args)
+                    .current_dir(&svc.working_dir)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()
+                    .map_err(|e| format!("Failed to start PowerShell: {e}"))?
+            },
             ExecType::Ps1 => {
                 let mut cmd = Command::new(format!("{}/pwsh.exe", self.config.general.pwsh_path));
                 cmd.args(["-ExecutionPolicy", "Bypass", "-File", &svc.path])
@@ -89,7 +99,7 @@ impl ProcessManager {
                     .spawn()
                     .map_err(|e| format!("Failed to start cmd.exe: {e}"))?
             }
-            ExecType::Native => {
+            ExecType::PELoad => {
                 // Placeholder for solstice_loader integration
                 crate::pe::solstice_reflective_load_pe(&svc.path, &svc.args, &svc.working_dir)
                     .map_err(|e| format!("Failed to load PE via reflective loading {e}"))?

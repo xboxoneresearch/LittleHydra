@@ -14,7 +14,9 @@ It implements ideas / mechanisms from the following projects:
   - PowerShell scripts (`ps1`, via `pwsh.exe`)
   - .NET assemblies (via MSBuild task and `dotnet.exe`)
   - MSBuild tasks (via `dotnet.exe`)
-  - Native PE executables (reflective PE loading via [Solstice PE loader shellcode](https://github.com/exploits-forsale/solstice))
+  - PE executables
+    - peload, reflective PE loading via [Solstice PE loader shellcode](https://github.com/exploits-forsale/solstice)
+    - native, regular spawning via CreateProcess
 - **Service management**: Add, Remove, Start, stop, and query services by name and config file saving.
 - **Logging**: Logs to file, stdout and optionally to a remote TCP log host.
 - **RPC**: Control and query the manager at runtime, either via named pipe or tcp connection.
