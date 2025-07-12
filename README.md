@@ -90,6 +90,7 @@ Additionally, a TCP server is started on `rpc_port` (see `config.toml`).
 Send JSON requests (one per line):
 
 ### Commands
+- `info`: Get basic metadata about LittleHydra
 - `listServices`: Get all configured services and their states.
 - `startService { name }`: Start a service by name.
 - `stopService { name }`: Stop a service by name.
@@ -101,6 +102,22 @@ Send JSON requests (one per line):
 
 ### Example Requests & Responses
 
+#### Info
+**Request**
+```json
+{"cmd":"info"}
+```
+
+**Response**
+```json
+{"status":"success", "data": {
+    "app_version":"0.1.0",
+    "build_date":"2025-07-12T22:04:36.446998605+00:00",
+    "protocol_version":1
+  }
+}
+```
+
 #### List Services
 **Request:**
 ```json
@@ -109,7 +126,7 @@ Send JSON requests (one per line):
 **Response:**
 ```json
 {
-  "status": "Success",
+  "status": "success",
   "data": {
     "example_ps1": {
       "state": "Running",
@@ -134,7 +151,7 @@ Send JSON requests (one per line):
 ```
 **Response:**
 ```json
-{"status": "Success", "data": {"name": "example_ps1", "state": "Running"}}
+{"status": "success", "data": {"name": "example_ps1", "state": "Running"}}
 ```
 
 #### Stop Service
@@ -144,7 +161,7 @@ Send JSON requests (one per line):
 ```
 **Response:**
 ```json
-{"status": "Success", "data": {"name": "example_ps1", "state": "Stopped", "exit_code": 0}}
+{"status": "success", "data": {"name": "example_ps1", "state": "Stopped", "exit_code": 0}}
 ```
 
 #### Add Service
@@ -166,7 +183,7 @@ Send JSON requests (one per line):
 ```
 **Response:**
 ```json
-{"status": "Success", "data": {"name": "new_service", "status": "Added"}}
+{"status": "success", "data": {"name": "new_service", "status": "Added"}}
 ```
 
 #### Delete Service
@@ -176,7 +193,7 @@ Send JSON requests (one per line):
 ```
 **Response:**
 ```json
-{"status": "Success", "data": {"name": "example_ps1", "status": "Deleted"}}
+{"status": "success", "data": {"name": "example_ps1", "status": "Deleted"}}
 ```
 
 #### Save Config
@@ -186,7 +203,7 @@ Send JSON requests (one per line):
 ```
 **Response:**
 ```json
-{"status": "Success", "data": {"status": "ConfigSaved"}}
+{"status": "success", "data": {"status": "ConfigSaved"}}
 ```
 
 #### Open Firewall Port
@@ -196,7 +213,7 @@ Send JSON requests (one per line):
 ```
 **Response:**
 ```json
-{"status": "Success", "data": {"name": "MyAppRule", "ports": [8080], "status": "PortsOpened"}}
+{"status": "success", "data": {"name": "MyAppRule", "ports": [8080], "status": "PortsOpened"}}
 ```
 
 #### Delete Firewall Rule
@@ -206,13 +223,13 @@ Send JSON requests (one per line):
 ```
 **Response:**
 ```json
-{"status": "Success", "data": {"name": "MyAppRule", "status": "FirewallRuleDeleted"}}
+{"status": "success", "data": {"name": "MyAppRule", "status": "FirewallRuleDeleted"}}
 ```
 
 #### Error Example
 **Response:**
 ```json
-{"status": "Error", "message": "Service 'foo' not found"}
+{"status": "error", "message": "Service 'foo' not found"}
 ```
 
 ## License
