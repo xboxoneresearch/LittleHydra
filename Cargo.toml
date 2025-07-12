@@ -2,6 +2,7 @@
 name = "little-hydra"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -31,3 +32,6 @@ clap = { version = "4.5.40", features = ["derive"] }
 [features]
 default = ["network_server"]
 network_server = []
+
+[build-dependencies]
+chrono = "0.4"

@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
+const CURRENT_PROTOCOL_VERSION: u32 = 1;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ServiceStatusState {
     Running,
@@ -21,6 +23,7 @@ pub struct ServiceState {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "cmd", rename_all = "camelCase")]
 pub enum RpcRequest {
+    Info,
     ListServices,
     StartService {
         name: String,
@@ -65,12 +68,21 @@ where
             Ok(_) => {
                 let req: Result<RpcRequest, _> = serde_json::from_str(&line);
                 let resp = match req {
+                    Ok(RpcRequest::Info) => {
+                        RpcResponse::Success {
+                            data: serde_json::json!({
+                                "app_version": env!("CARGO_PKG_VERSION"),
+                                "build_date": env!("BUILD_DATE"),
+                                "protocol_version": CURRENT_PROTOCOL_VERSION
+                            }),
+                        }
+                    },
                     Ok(RpcRequest::ListServices) => {
                         let states = pm.get_states();
                         RpcResponse::Success {
                             data: serde_json::to_value(states).unwrap(),
                         }
-                    }
+                    },
                     Ok(RpcRequest::StartService { name }) => match pm.start_service(&name) {
                         Ok(()) => RpcResponse::Success {
                             data: serde_json::json!({"name": name, "state": "Running"}),
