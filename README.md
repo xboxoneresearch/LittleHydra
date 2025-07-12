@@ -195,6 +195,34 @@ Send JSON requests (one per line):
 ```json
 {"status": "success", "data": {"name": "example_ps1", "status": "Deleted"}}
 ```
+#### Get Config
+**Request:**
+```json
+{"cmd": "getConfig"}
+```
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "general":{
+      "dotnet_path":"D:\\dotnet",
+      "pwsh_path":"D:\\pwsh",
+      "rpc_port":9000
+    },
+    "service":[{
+      "args":[],
+      "exec_type":"native",
+      "name":"solstice-daemon",
+      "path":"D:\\solstice_daemon.exe",
+      "ports":[],
+      "restart_on_error":false,
+      "start_priority":1,
+      "working_dir":"D:\\"
+    }]
+  }
+}
+```
 
 #### Save Config
 **Request:**

@@ -38,6 +38,7 @@ pub enum RpcRequest {
     DeleteService {
         name: String,
     },
+    GetConfig,
     SaveConfig,
     OpenFirewallPorts {
         name: String,
@@ -108,6 +109,12 @@ where
                             data: serde_json::json!({"name": name, "status": "Deleted"}),
                         },
                         Err(e) => RpcResponse::Error { message: e },
+                    },
+                    Ok(RpcRequest::GetConfig) => {
+                        let config = (*pm.config).clone();
+                        RpcResponse::Success {
+                            data: serde_json::to_value(config).unwrap(),
+                        }
                     },
                     Ok(RpcRequest::SaveConfig) => match pm.save_config() {
                         Ok(()) => RpcResponse::Success {
