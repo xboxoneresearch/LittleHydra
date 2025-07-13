@@ -33,15 +33,15 @@ async fn main() -> Result<(), Error> {
     let cli = Cli::parse();
 
     let config_str = fs::read_to_string(&cli.config)
-        .expect(&format!("Failed reading config from '{}'", &cli.config));
+        .expect(&format!("Failed reading config from '{:?}'", &cli.config));
     let config: Config = toml::from_str(&config_str)
-        .expect(&format!("Failed deserializing config from '{}'", &cli.config));
+        .expect(&format!("Failed deserializing config from '{:?}'", &cli.config));
 
     println!("General config: {:#?}", config.general);
     println!("Loaded services: {:#?}", config.service);
 
     let config = Arc::new(config);
-    let pm = Arc::new(ProcessManager::new(config.clone()));
+    let pm = Arc::new(ProcessManager::new(config.clone(), &cli.config));
     pm.start_monitoring();
 
     // Set up flexi_logger with file and stdout initially

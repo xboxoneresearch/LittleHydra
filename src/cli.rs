@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use log::LevelFilter;
 
@@ -16,7 +18,7 @@ pub struct Cli {
 
     /// Path to config file (default: config.toml)
     #[arg(short = 'c', long = "config", default_value = "config.toml")]
-    pub config: String,
+    pub config: PathBuf,
 }
 
 impl Cli {

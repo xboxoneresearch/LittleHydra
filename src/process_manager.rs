@@ -1,6 +1,7 @@
 use chrono::Utc;
 use ::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::process::Child;
 use std::sync::{Arc, Mutex};
 use std::io::{BufReader, Read};
@@ -31,6 +32,7 @@ pub struct OneshotProcess {
 }
 
 pub struct ProcessManager {
+    pub config_path: PathBuf,
     pub handles: Arc<Mutex<HashMap<String, Child>>>,
     pub states: Arc<Mutex<HashMap<String, ServiceState>>>,
     pub config: Arc<Config>,
@@ -39,7 +41,7 @@ pub struct ProcessManager {
 }
 
 impl ProcessManager {
-    pub fn new(config: Arc<Config>) -> Self {
+    pub fn new(config: Arc<Config>, config_path: &Path) -> Self {
         let mut state_map = HashMap::new();
         for svc in &config.service {
             state_map.insert(
@@ -53,6 +55,7 @@ impl ProcessManager {
             );
         }
         Self {
+            config_path: config_path.to_path_buf(),
             handles: Arc::new(Mutex::new(HashMap::new())),
             states: Arc::new(Mutex::new(state_map)),
             config: config.clone(),
@@ -345,6 +348,7 @@ impl ProcessManager {
     // Helper to allow calling start_service from monitoring thread
     fn clone_for_monitoring(&self) -> Arc<ProcessManager> {
         Arc::new(ProcessManager {
+            config_path: self.config_path.clone(),
             handles: Arc::clone(&self.handles),
             states: Arc::clone(&self.states),
             config: Arc::clone(&self.config),
