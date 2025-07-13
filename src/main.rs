@@ -7,6 +7,7 @@ mod firewall;
 mod pe;
 mod process_log_writer;
 mod process_manager;
+mod process_spawner;
 mod rpc;
 mod tcp_log_writer;
 

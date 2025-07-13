@@ -47,6 +47,13 @@ pub enum RpcRequest {
     DeleteFirewallRule {
         name: String,
     },
+    OneshotSpawn {
+        name: String,
+        config: serde_json::Value,
+    },
+    OneshotStatus {
+        pid: u32,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -136,6 +143,27 @@ where
                                 data: serde_json::json!({"name": name, "status": "FirewallRuleDeleted"}),
                             },
                             Err(e) => RpcResponse::Error { message: format!("Failed to delete firewall rule: {e}") },
+                        }
+                    }
+                    Ok(RpcRequest::OneshotSpawn { name, config }) => {
+                        match pm.oneshot_spawn(&name, config) {
+                            Ok(pid) => RpcResponse::Success {
+                                data: serde_json::json!({"name": name, "pid": pid, "status": "Spawned"}),
+                            },
+                            Err(e) => RpcResponse::Error { message: e },
+                        }
+                    }
+                    Ok(RpcRequest::OneshotStatus { pid }) => {
+                        match pm.oneshot_status(pid) {
+                            Ok((stdout_b64, stderr_b64, exit_status)) => RpcResponse::Success {
+                                data: serde_json::json!({
+                                    "pid": pid,
+                                    "stdout": stdout_b64,
+                                    "stderr": stderr_b64,
+                                    "exit_status": exit_status
+                                }),
+                            },
+                            Err(e) => RpcResponse::Error { message: e },
                         }
                     }
                     Err(e) => RpcResponse::Error {

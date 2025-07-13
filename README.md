@@ -254,6 +254,28 @@ Send JSON requests (one per line):
 {"status": "success", "data": {"name": "MyAppRule", "status": "FirewallRuleDeleted"}}
 ```
 
+#### Oneshot execution
+**Request:**
+```json
+{"cmd":"oneshotSpawn","name":"tasklist-oneshot","config":{"exec_type":"native","args":[],"path":"C:\\Windows\\System32\\tlist.exe","ports":[],"working_dir":"C:\\"}}
+```
+
+**Response**
+```json
+{"status":"success","data":{"name":"hello","pid":440,"status":"Spawned"}}
+```
+
+#### Oneshot status
+**Request:**
+```json
+{"cmd":"oneshotStatus","pid":440}
+```
+
+**Response**
+```json
+{"status":"success","data":{"exit_status":0,"pid":440,"stderr":"","stdout":"Li4uc3Rkb3V0IG91dHB1dC4uLgo="}}
+```
+
 #### Error Example
 **Response:**
 ```json
