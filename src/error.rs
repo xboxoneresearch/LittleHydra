@@ -21,4 +21,6 @@ pub enum Error {
     Firewall(String),
     #[error("COM initialization failed: {0}")]
     ComInit(String),
+    #[error("Impersonation error: {0}")]
+    Impersonation(String),
 }

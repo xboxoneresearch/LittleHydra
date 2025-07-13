@@ -24,7 +24,10 @@ windows = { version = "0.52", features = [
     "Win32_System_Diagnostics_Debug",
     "Win32_NetworkManagement",
     "Win32_NetworkManagement_WindowsFirewall",
-    "Win32_NetworkManagement_WindowsFilteringPlatform"
+    "Win32_NetworkManagement_WindowsFilteringPlatform",
+
+    # For impersonation
+    "Win32_System_LibraryLoader",
 ]}
 chrono = { version = "0.4", features = ["serde", "clock"] }
 clap = { version = "4.5.40", features = ["derive"] }

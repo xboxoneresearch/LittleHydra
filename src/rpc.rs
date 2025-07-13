@@ -1,10 +1,15 @@
 use crate::process_manager::ProcessManager;
+use crate::impersonate::{get_primary_token, get_defaultaccount_token};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
 const CURRENT_PROTOCOL_VERSION: u32 = 1;
+
+fn default_impersonation_level() -> i32 {
+    0
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ServiceStatusState {
@@ -46,6 +51,12 @@ pub enum RpcRequest {
     },
     DeleteFirewallRule {
         name: String,
+    },
+    GetToken {
+        #[serde(default)]
+        use_default_account: bool,
+        #[serde(default = "default_impersonation_level")]
+        impersonation_level: i32,
     },
 }
 
@@ -138,6 +149,30 @@ where
                             Err(e) => RpcResponse::Error { message: format!("Failed to delete firewall rule: {e}") },
                         }
                     }
+                    Ok(RpcRequest::GetToken { use_default_account, impersonation_level }) => {
+                        let token_result = if use_default_account {
+                            get_defaultaccount_token(impersonation_level)
+                        } else {
+                            get_primary_token(impersonation_level)
+                        };
+
+                        match token_result {
+                            Ok(token_handle) => {
+                                let handle_ptr = token_handle.0;
+                                RpcResponse::Success {
+                                    data: serde_json::json!({
+                                        "token_handle": handle_ptr,
+                                        "use_default_account": use_default_account,
+                                        "impersonation_level": impersonation_level,
+                                        "status": "TokenRetrieved"
+                                    })
+                                }
+                            },
+                            Err(e) => RpcResponse::Error { 
+                                message: format!("Failed to get token: {e}") 
+                            },
+                        }
+                    },
                     Err(e) => RpcResponse::Error {
                         message: format!("Invalid request: {e}"),
                     },

@@ -9,6 +9,7 @@ mod process_log_writer;
 mod process_manager;
 mod rpc;
 mod tcp_log_writer;
+mod impersonate;
 
 use clap::Parser;
 use flexi_logger::FileSpec;
