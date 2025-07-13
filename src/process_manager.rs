@@ -1,10 +1,11 @@
 use chrono::Utc;
+use log::trace;
 use ::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Child;
 use std::sync::{Arc, Mutex};
-use std::io::{BufReader, Read};
+use std::io::{BufReader, PipeReader, Read};
 use base64::prelude::*;
 
 use crate::config::{Config, ExecType};
@@ -25,9 +26,7 @@ pub struct OneshotConfig {
 
 pub struct OneshotProcess {
     pub child: Child,
-    // TODO: Maybe replace this with a common pipe for stderr/stdout to write into?
-    pub stdout_buffer: Arc<Mutex<Vec<u8>>>,
-    pub stderr_buffer: Arc<Mutex<Vec<u8>>>,
+    pub output_reader: Arc<Mutex<PipeReader>>,
     pub exit_status: Option<i32>,
 }
 
@@ -80,7 +79,7 @@ impl ProcessManager {
             return Err(format!("Service '{name}' is already running"));
         }
 
-        let mut child = self.spawner.spawn_process(
+        let (child, output_reader) = self.spawner.spawn_process(
             name,
             &svc.exec_type,
             &svc.path,
@@ -89,12 +88,8 @@ impl ProcessManager {
             &svc.ports,
         )?;
 
-        // Capture stdout and stderr for logging
-        let stdout = child.stdout.take();
-        let stderr = child.stderr.take();
-
         // Spawn output logger threads
-        spawn_output_logger(name.to_string(), stdout, stderr);
+        spawn_output_logger(name.to_string(), output_reader);
 
         handles.insert(name.to_string(), child);
         self.states.lock().unwrap().insert(
@@ -185,7 +180,7 @@ impl ProcessManager {
         let oneshot_config: OneshotConfig = serde_json::from_value(config)
             .map_err(|e| format!("Failed to parse oneshot config: {e}"))?;
 
-        let mut child = self.spawner.spawn_process(
+        let (child, reader) = self.spawner.spawn_process(
             name,
             &oneshot_config.exec_type,
             &oneshot_config.path,
@@ -195,66 +190,18 @@ impl ProcessManager {
         )?;
 
         let pid = child.id();
-        
-        // Capture stdout and stderr for buffering
-        let stdout = child.stdout.take();
-        let stderr = child.stderr.take();
-
-        let stdout_buffer = Arc::new(Mutex::new(Vec::new()));
-        let stderr_buffer = Arc::new(Mutex::new(Vec::new()));
-
+        let output_reader = Arc::new(Mutex::new(reader));
         let oneshot_process = OneshotProcess {
             child,
-            stdout_buffer: stdout_buffer.clone(),
-            stderr_buffer: stderr_buffer.clone(),
+            output_reader,
             exit_status: None,
         };
 
-        // Spawn threads to read stdout and stderr into buffers
-        if let Some(stdout) = stdout {
-            let stdout_buffer_clone = Arc::clone(&stdout_buffer);
-            std::thread::spawn(move || {
-                let mut reader = BufReader::new(stdout);
-                let mut buf = [0; 1024];
-                loop {
-                    match reader.read(&mut buf) {
-                        Ok(0) => break, // EOF
-                        Ok(n) => {
-                            let mut buffer = stdout_buffer_clone.lock().unwrap();
-                            buffer.extend_from_slice(&buf[..n]);
-                        }
-                        Err(_) => break,
-                    }
-                }
-            });
-        }
-
-        if let Some(stderr) = stderr {
-            let stderr_buffer_clone = Arc::clone(&stderr_buffer);
-            std::thread::spawn(move || {
-                let mut reader = BufReader::new(stderr);
-                let mut buf = [0; 1024];
-                loop {
-                    match reader.read(&mut buf) {
-                        Ok(0) => break, // EOF
-                        Ok(n) => {
-                            let mut buffer = stderr_buffer_clone.lock().unwrap();
-                            buffer.extend_from_slice(&buf[..n]);
-                        }
-                        Err(_) => break,
-                    }
-                }
-            });
-        }
-
-        // Store the Arc<Mutex<Vec<u8>>> references in the oneshot process
-        // We'll need to modify the OneshotProcess struct to handle this properly
-        // For now, let's use a simpler approach with separate tracking
         self.oneshot_processes.lock().unwrap().insert(pid, oneshot_process);
         Ok(pid)
     }
 
-    pub fn oneshot_status(&self, pid: u32) -> Result<(String, String, Option<i32>), String> {
+    pub fn oneshot_status(&self, pid: u32) -> Result<(String, Option<i32>), String> {
         let mut processes = self.oneshot_processes.lock().unwrap();
         
         if let Some(oneshot_process) = processes.get_mut(&pid) {
@@ -274,9 +221,22 @@ impl ProcessManager {
                 }
             }
 
-            // Convert buffers to base64
-            let stdout_b64 = BASE64_STANDARD.encode(&*oneshot_process.stdout_buffer.lock().unwrap());
-            let stderr_b64 = BASE64_STANDARD.encode(&*oneshot_process.stderr_buffer.lock().unwrap());
+            // Convert buffer to base64
+            let mut buf = [0u8; 1024 * 1024]; // 1MB
+            let process_output = {
+                let reader = &*oneshot_process.output_reader.lock().unwrap();
+                match BufReader::new(reader).read(&mut buf) {
+                    Ok(0) => "".into(), // EOF?
+                    Ok(count) => {
+                        BASE64_STANDARD.encode(&buf[..count])
+                    },
+                    Err(err) => {
+                        trace!("No new data from process, err: {err:?}");
+                        "".into()
+                    }
+                }
+            };
+
             let exit_status = oneshot_process.exit_status;
 
             // Remove the process from tracking if it has exited
@@ -284,7 +244,7 @@ impl ProcessManager {
                 processes.remove(&pid);
             }
 
-            Ok((stdout_b64, stderr_b64, exit_status))
+            Ok((process_output, exit_status))
         } else {
             Err(format!("Oneshot process with PID {} not found", pid))
         }
