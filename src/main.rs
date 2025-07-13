@@ -10,6 +10,7 @@ mod process_manager;
 mod process_spawner;
 mod rpc;
 mod tcp_log_writer;
+mod power;
 
 use clap::Parser;
 use flexi_logger::FileSpec;

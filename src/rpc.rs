@@ -1,4 +1,5 @@
 use crate::process_manager::ProcessManager;
+use crate::power;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -54,6 +55,8 @@ pub enum RpcRequest {
     OneshotStatus {
         pid: u32,
     },
+    Shutdown,
+    Reboot,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -165,6 +168,14 @@ where
                             },
                             Err(e) => RpcResponse::Error { message: e },
                         }
+                    }
+                    Ok(RpcRequest::Shutdown) => {
+                        power::shutdown();
+                        unreachable!();
+                    }
+                    Ok(RpcRequest::Reboot) => {
+                        power::reboot();
+                        unreachable!();
                     }
                     Err(e) => RpcResponse::Error {
                         message: format!("Invalid request: {e}"),

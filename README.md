@@ -102,6 +102,8 @@ Send JSON requests (one per line):
 - `deleteFirewallRule { name }`: Delete a firewall rule by its name.
 - `oneshotSpawn { name, config }`: Spawn a process just once, without saving it persistently.
 - `oneshotStatus {pid}`: Get the status of the oneshot-process.
+- `shutdown`: Initiate system shutdown.
+- `reboot`: Initiate system reboot.
 
 ### Example Requests & Responses
 
@@ -278,6 +280,22 @@ Send JSON requests (one per line):
 ```json
 {"status":"success","data":{"exit_status":0,"pid":440,"stderr":"","stdout":"Li4uc3Rkb3V0IG91dHB1dC4uLgo="}}
 ```
+
+#### Shutdown
+**Request:**
+```json
+{"cmd": "shutdown"}
+```
+**Response:**
+No response
+
+#### Reboot
+**Request:**
+```json
+{"cmd": "reboot"}
+```
+**Response:**
+No response
 
 #### Error Example
 **Response:**
