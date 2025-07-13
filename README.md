@@ -278,7 +278,7 @@ Send JSON requests (one per line):
 
 **Response**
 ```json
-{"status":"success","data":{"exit_status":0,"pid":440,"stderr":"","stdout":"Li4uc3Rkb3V0IG91dHB1dC4uLgo="}}
+{"status":"success","data":{"exit_status":0,"pid":440,"output":"Li4uc3Rkb3V0IG91dHB1dC4uLgo="}}
 ```
 
 #### Shutdown
