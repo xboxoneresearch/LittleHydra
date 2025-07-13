@@ -176,7 +176,7 @@ impl ProcessManager {
         let config = &*self.config;
         let toml =
             toml::to_string(config).map_err(|e| format!("Failed to serialize config: {e}"))?;
-        std::fs::write("config.toml", toml)
+        std::fs::write(&self.config_path, toml)
             .map_err(|e| format!("Failed to write config.toml: {e}"))?;
         Ok(())
     }
