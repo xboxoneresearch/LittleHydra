@@ -1,18 +1,41 @@
 use chrono::Utc;
+use ::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::process::{Child, Command, Stdio};
+use std::process::Child;
 use std::sync::{Arc, Mutex};
+use std::io::{BufReader, Read};
+use base64::prelude::*;
 
 use crate::config::{Config, ExecType};
-use crate::dotnet::load_dotnet_assembly_with_config;
 use crate::process_log_writer::spawn_output_logger;
-use crate::firewall::allow_ports_through_firewall;
+use crate::process_spawner::ProcessSpawner;
 use crate::rpc::{ServiceState, ServiceStatusState};
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OneshotConfig {
+    pub exec_type: ExecType,
+    pub path: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    pub working_dir: String,
+    #[serde(default)]
+    pub ports: Vec<u16>,
+}
+
+pub struct OneshotProcess {
+    pub child: Child,
+    // TODO: Maybe replace this with a common pipe for stderr/stdout to write into?
+    pub stdout_buffer: Arc<Mutex<Vec<u8>>>,
+    pub stderr_buffer: Arc<Mutex<Vec<u8>>>,
+    pub exit_status: Option<i32>,
+}
 
 pub struct ProcessManager {
     pub handles: Arc<Mutex<HashMap<String, Child>>>,
     pub states: Arc<Mutex<HashMap<String, ServiceState>>>,
     pub config: Arc<Config>,
+    pub spawner: ProcessSpawner,
+    pub oneshot_processes: Arc<Mutex<HashMap<u32, OneshotProcess>>>,
 }
 
 impl ProcessManager {
@@ -32,7 +55,9 @@ impl ProcessManager {
         Self {
             handles: Arc::new(Mutex::new(HashMap::new())),
             states: Arc::new(Mutex::new(state_map)),
-            config,
+            config: config.clone(),
+            spawner: ProcessSpawner::from_config(&config),
+            oneshot_processes: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -52,80 +77,14 @@ impl ProcessManager {
             return Err(format!("Service '{name}' is already running"));
         }
 
-        if !svc.ports.is_empty() {
-            if let Err(err) = allow_ports_through_firewall(&svc.name, &svc.ports) {
-                return Err(format!("Failed allowing {:?} in firewall, err: {err}", svc.ports));
-            }
-        }
-
-        let mut child = match svc.exec_type {
-            ExecType::Native => {
-                Command::new(&svc.path)
-                    .args(&svc.args)
-                    .current_dir(&svc.working_dir)
-                    .stdin(Stdio::null())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .spawn()
-                    .map_err(|e| format!("Failed to start PowerShell: {e}"))?
-            },
-            ExecType::Ps1 => {
-                let mut cmd = Command::new(format!("{}/pwsh.exe", self.config.general.pwsh_path));
-                cmd.args(["-ExecutionPolicy", "Bypass", "-File", &svc.path])
-                    .args(&svc.args)
-                    .current_dir(&svc.working_dir)
-                    .stdin(Stdio::null())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .spawn()
-                    .map_err(|e| format!("Failed to start PowerShell: {e}"))?
-            }
-            ExecType::Dotnet => load_dotnet_assembly_with_config(
-                &self.config,
-                &svc.path,
-                Some(&svc.args.join(" ")),
-                &svc.working_dir,
-            )
-            .map_err(|e| format!("Failed to start dotnet: {e}"))?,
-            ExecType::Cmd => {
-                let mut cmd = Command::new("cmd.exe");
-                cmd.arg("/C")
-                    .arg(&svc.path)
-                    .args(&svc.args)
-                    .current_dir(&svc.working_dir)
-                    .stdin(Stdio::null())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .spawn()
-                    .map_err(|e| format!("Failed to start cmd.exe: {e}"))?
-            }
-            ExecType::PELoad => {
-                // Placeholder for solstice_loader integration
-                crate::pe::solstice_reflective_load_pe(&svc.path, &svc.args, &svc.working_dir)
-                    .map_err(|e| format!("Failed to load PE via reflective loading {e}"))?
-            }
-            ExecType::Msbuild => {
-                // Use dotnet msbuild to build the project at svc.path with args
-                let dotnet_exe = if self.config.general.dotnet_path.ends_with("dotnet.exe") {
-                    self.config.general.dotnet_path.clone()
-                } else {
-                    format!(
-                        "{}/dotnet.exe",
-                        self.config.general.dotnet_path.trim_end_matches('/')
-                    )
-                };
-                let mut cmd = Command::new(dotnet_exe);
-                cmd.arg("msbuild")
-                    .arg(&svc.path)
-                    .args(&svc.args)
-                    .current_dir(&svc.working_dir)
-                    .stdin(Stdio::null())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped());
-                cmd.spawn()
-                    .map_err(|e| format!("Failed to start dotnet msbuild: {e}"))?
-            }
-        };
+        let mut child = self.spawner.spawn_process(
+            name,
+            &svc.exec_type,
+            &svc.path,
+            &svc.args,
+            &svc.working_dir,
+            &svc.ports,
+        )?;
 
         // Capture stdout and stderr for logging
         let stdout = child.stdout.take();
@@ -219,6 +178,115 @@ impl ProcessManager {
         Ok(())
     }
 
+    pub fn oneshot_spawn(&self, name: &str, config: serde_json::Value) -> Result<u32, String> {
+        let oneshot_config: OneshotConfig = serde_json::from_value(config)
+            .map_err(|e| format!("Failed to parse oneshot config: {e}"))?;
+
+        let mut child = self.spawner.spawn_process(
+            name,
+            &oneshot_config.exec_type,
+            &oneshot_config.path,
+            &oneshot_config.args,
+            &oneshot_config.working_dir,
+            &oneshot_config.ports,
+        )?;
+
+        let pid = child.id();
+        
+        // Capture stdout and stderr for buffering
+        let stdout = child.stdout.take();
+        let stderr = child.stderr.take();
+
+        let stdout_buffer = Arc::new(Mutex::new(Vec::new()));
+        let stderr_buffer = Arc::new(Mutex::new(Vec::new()));
+
+        let oneshot_process = OneshotProcess {
+            child,
+            stdout_buffer: stdout_buffer.clone(),
+            stderr_buffer: stderr_buffer.clone(),
+            exit_status: None,
+        };
+
+        // Spawn threads to read stdout and stderr into buffers
+        if let Some(stdout) = stdout {
+            let stdout_buffer_clone = Arc::clone(&stdout_buffer);
+            std::thread::spawn(move || {
+                let mut reader = BufReader::new(stdout);
+                let mut buf = [0; 1024];
+                loop {
+                    match reader.read(&mut buf) {
+                        Ok(0) => break, // EOF
+                        Ok(n) => {
+                            let mut buffer = stdout_buffer_clone.lock().unwrap();
+                            buffer.extend_from_slice(&buf[..n]);
+                        }
+                        Err(_) => break,
+                    }
+                }
+            });
+        }
+
+        if let Some(stderr) = stderr {
+            let stderr_buffer_clone = Arc::clone(&stderr_buffer);
+            std::thread::spawn(move || {
+                let mut reader = BufReader::new(stderr);
+                let mut buf = [0; 1024];
+                loop {
+                    match reader.read(&mut buf) {
+                        Ok(0) => break, // EOF
+                        Ok(n) => {
+                            let mut buffer = stderr_buffer_clone.lock().unwrap();
+                            buffer.extend_from_slice(&buf[..n]);
+                        }
+                        Err(_) => break,
+                    }
+                }
+            });
+        }
+
+        // Store the Arc<Mutex<Vec<u8>>> references in the oneshot process
+        // We'll need to modify the OneshotProcess struct to handle this properly
+        // For now, let's use a simpler approach with separate tracking
+        self.oneshot_processes.lock().unwrap().insert(pid, oneshot_process);
+        Ok(pid)
+    }
+
+    pub fn oneshot_status(&self, pid: u32) -> Result<(String, String, Option<i32>), String> {
+        let mut processes = self.oneshot_processes.lock().unwrap();
+        
+        if let Some(oneshot_process) = processes.get_mut(&pid) {
+            // Check if process has exited
+            if oneshot_process.exit_status.is_none() {
+                match oneshot_process.child.try_wait() {
+                    Ok(Some(status)) => {
+                        oneshot_process.exit_status = status.code();
+                    }
+                    Ok(None) => {
+                        // Process is still running
+                    }
+                    Err(_) => {
+                        // Process has exited with error
+                        oneshot_process.exit_status = None;
+                    }
+                }
+            }
+
+            // Convert buffers to base64
+            let stdout_b64 = BASE64_STANDARD.encode(&*oneshot_process.stdout_buffer.lock().unwrap());
+            let stderr_b64 = BASE64_STANDARD.encode(&*oneshot_process.stderr_buffer.lock().unwrap());
+            let exit_status = oneshot_process.exit_status;
+
+            // Remove the process from tracking if it has exited
+            if exit_status.is_some() {
+                processes.remove(&pid);
+            }
+
+            Ok((stdout_b64, stderr_b64, exit_status))
+        } else {
+            Err(format!("Oneshot process with PID {} not found", pid))
+        }
+    }
+
     /// Starts a background thread that monitors all running services and updates their state if they exit.
     pub fn start_monitoring(&self) {
         let handles = Arc::clone(&self.handles);
@@ -280,6 +348,8 @@ impl ProcessManager {
             handles: Arc::clone(&self.handles),
             states: Arc::clone(&self.states),
             config: Arc::clone(&self.config),
+            spawner: ProcessSpawner::from_config(&self.config),
+            oneshot_processes: Arc::clone(&self.oneshot_processes),
         })
     }
 }
