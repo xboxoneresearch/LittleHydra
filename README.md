@@ -96,9 +96,12 @@ Send JSON requests (one per line):
 - `stopService { name }`: Stop a service by name.
 - `addService { name, config }`: Add a new service with the given config (as JSON).
 - `deleteService { name }`: Remove a service by name.
-- `saveConfig`: Save the current configuration to `config.toml`.
+- `getConfig`: Get current configuration.
+- `saveConfig`: Save the current configuration to file.
 - `openFirewallPorts { name, ports }`: Open firewall ports with a given rule name and port numbers.
 - `deleteFirewallRule { name }`: Delete a firewall rule by its name.
+- `oneshotSpawn { name, config }`: Spawn a process just once, without saving it persistently.
+- `oneshotStatus {pid}`: Get the status of the oneshot-process.
 
 ### Example Requests & Responses
 
