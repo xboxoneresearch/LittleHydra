@@ -158,11 +158,10 @@ where
                     }
                     Ok(RpcRequest::OneshotStatus { pid }) => {
                         match pm.oneshot_status(pid) {
-                            Ok((stdout_b64, stderr_b64, exit_status)) => RpcResponse::Success {
+                            Ok((process_output_b64, exit_status)) => RpcResponse::Success {
                                 data: serde_json::json!({
                                     "pid": pid,
-                                    "stdout": stdout_b64,
-                                    "stderr": stderr_b64,
+                                    "output": process_output_b64,
                                     "exit_status": exit_status
                                 }),
                             },

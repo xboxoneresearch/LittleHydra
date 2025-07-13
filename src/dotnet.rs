@@ -1,6 +1,7 @@
 use crate::assets::DOTNET_PROJ;
 use crate::error::Error;
 use std::fs;
+use std::io::PipeWriter;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use tempfile::TempDir;
@@ -10,6 +11,7 @@ pub fn load_dotnet_assembly(
     assembly_path: &str,
     arguments: Option<&str>,
     working_dir: &str,
+    output_writer: PipeWriter,
 ) -> Result<Child, Error> {
     // Create a temporary directory for the build files
     let mut temp_dir = TempDir::new()
@@ -45,8 +47,8 @@ pub fn load_dotnet_assembly(
         .env("DOTNET_NOLOGO", "1")
         .env("DOTNET_ROLL_FORWARD", "LatestMajor")
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .stdout(output_writer.try_clone()?)
+        .stderr(output_writer.try_clone()?);
 
     // Add arguments if provided
     if let Some(args) = arguments {
@@ -69,11 +71,13 @@ pub fn load_dotnet_assembly_with_config(
     assembly_path: &str,
     arguments: Option<&str>,
     working_dir: &str,
+    output_writer: PipeWriter,
 ) -> Result<Child, Error> {
     load_dotnet_assembly(
         &config.general.dotnet_path,
         assembly_path,
         arguments,
         working_dir,
+        output_writer,
     )
 }

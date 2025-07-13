@@ -1,4 +1,7 @@
+use std::io::PipeReader;
 use std::process::{Child, Command, Stdio};
+use tokio::net::windows::named_pipe::NamedPipeServer;
+
 use crate::config::{Config, ExecType};
 use crate::dotnet::load_dotnet_assembly;
 use crate::firewall::allow_ports_through_firewall;
@@ -28,7 +31,7 @@ impl ProcessSpawner {
         args: &[String],
         working_dir: &str,
         ports: &[u16],
-    ) -> Result<Child, String> {
+    ) -> Result<(Child, PipeReader), String> {
         // Handle firewall ports if specified
         if !ports.is_empty() {
             if let Err(err) = allow_ports_through_firewall(name, ports) {
@@ -36,14 +39,16 @@ impl ProcessSpawner {
             }
         }
 
+        let (reader, writer) = std::io::pipe().unwrap();
+
         let child = match exec_type {
             ExecType::Native => {
                 Command::new(path)
                     .args(args)
                     .current_dir(working_dir)
                     .stdin(Stdio::null())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
+                    .stdout(writer.try_clone().unwrap())
+                    .stderr(writer.try_clone().unwrap())
                     .spawn()
                     .map_err(|e| format!("Failed to start native process: {e}"))?
             },
@@ -53,8 +58,8 @@ impl ProcessSpawner {
                     .args(args)
                     .current_dir(working_dir)
                     .stdin(Stdio::null())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
+                    .stdout(writer.try_clone().unwrap())
+                    .stderr(writer.try_clone().unwrap())
                     .spawn()
                     .map_err(|e| format!("Failed to start PowerShell: {e}"))?
             }
@@ -63,6 +68,7 @@ impl ProcessSpawner {
                 path,
                 Some(&args.join(" ")),
                 working_dir,
+                writer,
             )
             .map_err(|e| format!("Failed to start dotnet: {e}"))?,
             ExecType::Cmd => {
@@ -72,8 +78,8 @@ impl ProcessSpawner {
                     .args(args)
                     .current_dir(working_dir)
                     .stdin(Stdio::null())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
+                    .stdout(writer.try_clone().unwrap())
+                    .stderr(writer.try_clone().unwrap())
                     .spawn()
                     .map_err(|e| format!("Failed to start cmd.exe: {e}"))?
             }
@@ -96,13 +102,13 @@ impl ProcessSpawner {
                     .args(args)
                     .current_dir(working_dir)
                     .stdin(Stdio::null())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped());
-                cmd.spawn()
+                    .stdout(writer.try_clone().unwrap())
+                    .stderr(writer.try_clone().unwrap())
+                    .spawn()
                     .map_err(|e| format!("Failed to start dotnet msbuild: {e}"))?
             }
         };
 
-        Ok(child)
+        Ok((child, reader))
     }
 } 
