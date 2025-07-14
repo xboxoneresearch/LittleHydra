@@ -1,5 +1,4 @@
 mod assets;
-mod cli;
 mod config;
 mod dotnet;
 mod error;
@@ -18,10 +17,10 @@ use flexi_logger::{Logger, WriteMode};
 use log::*;
 use std::{env, fs};
 use std::sync::Arc;
+use std::path::PathBuf;
 use tokio::runtime::Runtime;
 use tokio::signal;
 
-use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::Error;
 use crate::firewall::{allow_ports_through_firewall, disable_firewalls};
@@ -29,20 +28,50 @@ use crate::process_manager::ProcessManager;
 use crate::rpc::named_pipe_ipc_server;
 use crate::tcp_log_writer::TcpLogWriter;
 
+#[derive(Parser)]
+#[command(name = "little-hydra")]
+#[command(about = "A modular Windows process manager daemon")]
+#[command(version)]
+pub struct Cli {
+    /// Log level verbosity
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    pub verbose: u8,
+
+    /// TCP log host (format: host:port)
+    #[arg(long)]
+    pub log_host: Option<String>,
+
+    /// Path to config file (default: config.toml)
+    #[arg(short = 'c', long = "config", default_value = "config.toml")]
+    pub config_path: PathBuf,
+}
+
+impl Cli {
+    pub fn get_log_level(&self) -> LevelFilter {
+        match self.verbose {
+            0 => LevelFilter::Warn,
+            1 => LevelFilter::Info,
+            2 => LevelFilter::Debug,
+            3.. => LevelFilter::Trace,
+        }
+    }
+}
+
+
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let cli = Cli::parse();
 
-    let config_str = fs::read_to_string(&cli.config)
-        .expect(&format!("Failed reading config from '{:?}'", &cli.config));
+    let config_str = fs::read_to_string(&cli.config_path)
+        .expect(&format!("Failed reading config from '{:?}'", &cli.config_path));
     let config: Config = toml::from_str(&config_str)
-        .expect(&format!("Failed deserializing config from '{:?}'", &cli.config));
+        .expect(&format!("Failed deserializing config from '{:?}'", &cli.config_path));
 
     println!("General config: {:#?}", config.general);
     println!("Loaded services: {:#?}", config.service);
 
     let config = Arc::new(config);
-    let pm = Arc::new(ProcessManager::new(config.clone(), &cli.config));
+    let pm = Arc::new(ProcessManager::new(config.clone(), &cli.config_path));
     pm.start_monitoring();
 
     // Set up flexi_logger with file and stdout initially
