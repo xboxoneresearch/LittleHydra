@@ -41,9 +41,17 @@ pub struct Cli {
     #[arg(long)]
     pub log_host: Option<String>,
 
-    /// Path to config file (default: config.toml)
+    /// Path to config file
     #[arg(short = 'c', long = "config", default_value = "config.toml")]
     pub config_path: PathBuf,
+
+    /// Path to directory where logs get stored
+    #[arg(short = 'l', long, default_value=default_logpath().into_os_string())]
+    pub log_folder: PathBuf,
+}
+
+fn default_logpath() -> PathBuf {
+    env::temp_dir()
 }
 
 impl Cli {
@@ -76,7 +84,7 @@ async fn main() -> Result<(), Error> {
 
     // Set up flexi_logger with file and stdout initially
     let log_level = cli.get_log_level();
-    let log_filespec = FileSpec::default().directory(env::temp_dir());
+    let log_filespec = FileSpec::default().directory(cli.log_folder);
     let mut logger = Logger::try_with_str(log_level.to_string())?;
 
     // Add the file- and optionally, if connection to log-host succeeds, the tcp-logger
