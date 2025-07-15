@@ -84,7 +84,7 @@ impl ProcessSpawner {
                     .map_err(|e| format!("Failed to start cmd.exe: {e}"))?
             }
             ExecType::PELoad => {
-                crate::pe::solstice_reflective_load_pe(path, args, working_dir)
+                crate::pe::solstice_reflective_load_pe(path, args, working_dir, writer)
                     .map_err(|e| format!("Failed to load PE via reflective loading {e}"))?
             }
             ExecType::Msbuild => {
