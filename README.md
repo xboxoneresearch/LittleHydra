@@ -48,8 +48,10 @@ cargo build --release --target x86_64-pc-windows-msvc
 
 ### Linux
 
+For Unix, we utilize the [xwin](https://github.com/rust-cross/cargo-xwin) build helper. This will enable building with the MSVC toolchain.
+
 ```
-cargo install xwin
+cargo install cargo-xwin
 cargo xwin build --release --target x86_64-pc-windows-msvc
 ```
 
